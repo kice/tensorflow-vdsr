@@ -27,17 +27,20 @@ def get_img_list(data_path):
 			if os.path.exists(f[:-4]+"_4.mat"): train_list.append([f, f[:-4]+"_4.mat", 4])
 	return train_list
 def get_test_image(test_list, offset, batch_size):
-	target_list = test_list[offset:offset+batch_size]
+	target_list = test_list[int(offset):int(offset+batch_size)]
 	input_list = []
 	gt_list = []
 	scale_list = []
 	for pair in target_list:
-		print pair[1]
+		print(pair[1])
 		mat_dict = scipy.io.loadmat(pair[1])
 		input_img = None
-		if mat_dict.has_key("img_2"): 	input_img = mat_dict["img_2"]
-		elif mat_dict.has_key("img_3"): input_img = mat_dict["img_3"]
-		elif mat_dict.has_key("img_4"): input_img = mat_dict["img_4"]
+		# if mat_dict.has_key("img_2"): 	input_img = mat_dict["img_2"]
+		# elif mat_dict.has_key("img_3"): input_img = mat_dict["img_3"]
+		# elif mat_dict.has_key("img_4"): input_img = mat_dict["img_4"]
+		if   "img_2" in mat_dict : input_img = mat_dict["img_2"]
+		elif "img_3" in mat_dict : input_img = mat_dict["img_3"]
+		elif "img_4" in mat_dict : input_img = mat_dict["img_4"]
 		else: continue
 		gt_img = scipy.io.loadmat(pair[0])['img_raw']
 		input_list.append(input_img)
@@ -46,7 +49,7 @@ def get_test_image(test_list, offset, batch_size):
 	return input_list, gt_list, scale_list
 def test_VDSR_with_sess(epoch, ckpt_path, data_path,sess):
 	folder_list = glob.glob(os.path.join(data_path, 'Set*'))
-	print 'folder_list', folder_list
+	print('folder_list', folder_list)
 	saver.restore(sess, ckpt_path)
 	
 	psnr_dict = {}
@@ -61,13 +64,13 @@ def test_VDSR_with_sess(epoch, ckpt_path, data_path,sess):
 			img_vdsr_y = sess.run([output_tensor], feed_dict={input_tensor: np.resize(input_y, (1, input_y.shape[0], input_y.shape[1], 1))})
 			img_vdsr_y = np.resize(img_vdsr_y, (input_y.shape[0], input_y.shape[1]))
 			end_t = time.time()
-			print "end_t",end_t,"start_t",start_t
-			print "time consumption",end_t-start_t
-			print "image_size", input_y.shape
+			print("end_t",end_t,"start_t",start_t)
+			print("time consumption",end_t-start_t)
+			print("image_size", input_y.shape)
 			
 			psnr_bicub = psnr(input_y, gt_y, scale_list[0])
 			psnr_vdsr = psnr(img_vdsr_y, gt_y, scale_list[0])
-			print "PSNR: bicubic %f\tVDSR %f" % (psnr_bicub, psnr_vdsr)
+			print("PSNR: bicubic %f\tVDSR %f" % (psnr_bicub, psnr_vdsr))
 			psnr_list.append([psnr_bicub, psnr_vdsr, scale_list[0]])
 		psnr_dict[os.path.basename(folder_path)] = psnr_list
 	with open('psnr/%s' % os.path.basename(ckpt_path), 'wb') as f:
@@ -78,17 +81,20 @@ def test_VDSR(epoch, ckpt_path, data_path):
 if __name__ == '__main__':
 	model_list = sorted(glob.glob("./checkpoints/VDSR_adam_epoch_*"))
 	model_list = [fn for fn in model_list if not os.path.basename(fn).endswith("meta")]
+	for i in range(len(model_list)):
+		model_list[i] = os.path.splitext(model_list[i])[0]
+
 	with tf.Session() as sess:
 		input_tensor  			= tf.placeholder(tf.float32, shape=(1, None, None, 1))
 		shared_model = tf.make_template('shared_model', model)
 		output_tensor, weights 	= shared_model(input_tensor)
 		#output_tensor, weights 	= model(input_tensor)
 		saver = tf.train.Saver(weights)
-		tf.initialize_all_variables().run()
+		tf.global_variables_initializer().run()
 		for model_ckpt in model_list:
-			print model_ckpt
+			print(model_ckpt)
 			epoch = int(model_ckpt.split('epoch_')[-1].split('.ckpt')[0])
 			#if epoch<60:
 			#	continue
-			print "Testing model",model_ckpt
+			print("Testing model", model_ckpt)
 			test_VDSR_with_sess(80, model_ckpt, DATA_PATH,sess)
