@@ -33,9 +33,9 @@ TEST_DATA_PATH = "./data/test/"
 
 def get_train_list(data_path):
 	l = glob.glob(os.path.join(data_path,"*"))
-	print len(l)
+	print(len(l))
 	l = [f for f in l if re.search("^\d+.mat$", os.path.basename(f))]
-	print len(l)
+	print(len(l))
 	train_list = []
 	for f in l:
 		if os.path.exists(f):
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 	train_list = get_train_list(DATA_PATH)
 	
 	if not USE_QUEUE_LOADING:
-		print "not use queue loading, just sequential loading..."
+		print("not use queue loading, just sequential loading...")
 
 
 		### WITHOUT ASYNCHRONOUS DATA LOADING ###
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 		### WITHOUT ASYNCHRONOUS DATA LOADING ###
     
 	else:
-		print "use queue loading"	
+		print("use queue loading")
 
 
 		### WITH ASYNCHRONOUS DATA LOADING ###
@@ -109,7 +109,8 @@ if __name__ == '__main__':
 	shared_model = tf.make_template('shared_model', model)
 	#train_output, weights 	= model(train_input)
 	train_output, weights 	= shared_model(train_input)
-	loss = tf.reduce_sum(tf.nn.l2_loss(tf.sub(train_output, train_gt)))
+	#loss = tf.reduce_sum(tf.nn.l2_loss(tf.sub(train_output, train_gt)))
+	loss = tf.reduce_sum(tf.nn.l2_loss(tf.subtract(train_output, train_gt)))
 	for w in weights:
 		loss += tf.nn.l2_loss(w)*1e-4
 
@@ -139,12 +140,13 @@ if __name__ == '__main__':
 	#config.operation_timeout_in_ms=10000
 
 	with tf.Session(config=config) as sess:
-		tf.initialize_all_variables().run()
+		# tf.initialize_all_variables().run()
+		tf.global_variables_initializer().run()
 
 		if model_path:
-			print "restore model..."
+			print("restore model...")
 			saver.restore(sess, model_path)
-			print "Done"
+			print("Done")
 
 		### WITH ASYNCHRONOUS DATA LOADING ###
 		"""
@@ -170,7 +172,7 @@ if __name__ == '__main__':
 					sess.run(enqueue_op, feed_dict={train_input_single:input_img, train_gt_single:gt_img})
 					count+=1
 			except Exception as e:
-				print "stopping...", idx, e
+				print("stopping...", idx, e)
 		"""
 		if USE_QUEUE_LOADING:
 			# create threads
@@ -189,14 +191,14 @@ if __name__ == '__main__':
 			sess.run(q.close(cancel_pending_enqueues=True))
 			coord.request_stop()
 			coord.join(threads)
-			print "Done"
+			print("Done")
 			sys.exit(1)
 		original_sigint = signal.getsignal(signal.SIGINT)
 		signal.signal(signal.SIGINT, signal_handler)
 
 		if USE_QUEUE_LOADING:
 			lrr = BASE_LR
-			for epoch in xrange(0, MAX_EPOCH):
+			for epoch in range(0, MAX_EPOCH):
 				if epoch%LR_STEP_SIZE==0:
 
 					train_input_single  = tf.placeholder(tf.float32, shape=(IMG_SIZE[0], IMG_SIZE[1], 1))
@@ -209,7 +211,7 @@ if __name__ == '__main__':
 					### WITH ASYNCHRONOUS DATA LOADING ###
                 
 					train_output, weights 	= shared_model(train_input)
-					loss = tf.reduce_sum(tf.nn.l2_loss(tf.sub(train_output, train_gt)))
+					loss = tf.reduce_sum(tf.nn.l2_loss(tf.subtract(train_output, train_gt)))
 					for w in weights:
 						loss += tf.nn.l2_loss(w)*1e-4
                 
@@ -228,15 +230,15 @@ if __name__ == '__main__':
 						opt = optimizer.apply_gradients(capped_gvs, global_step=global_step)
 
 				# create threads
-				num_thread=20
-				print "num thread:" , len(threads)
+				num_thread = 40
+				print("num thread:" , len(threads))
 				del threads[:]
 				coord = tf.train.Coordinator()
-				print "delete threads..."
-				print "num thread:" , len(threads)
+				print("delete threads...")
+				print("num thread:" , len(threads))
 				for i in range(num_thread):
-					length = len(train_list)/num_thread
-					t = threading.Thread(target=load_and_enqueue, args=(coord, train_list[i*length:(i+1)*length],enqueue_op, train_input_single, train_gt_single,  i, num_thread))
+					length = len(train_list) / num_thread
+					t = threading.Thread(target=load_and_enqueue, args=(coord, train_list[int(i*length):int((i+1)*length)],enqueue_op, train_input_single, train_gt_single,  i, num_thread))
 					threads.append(t)
 					t.start()
 
@@ -244,14 +246,14 @@ if __name__ == '__main__':
 
 				for step in range(len(train_list)//BATCH_SIZE):
 					_,l,output,lr, g_step = sess.run([opt, loss, train_output, learning_rate, global_step])
-					print "[epoch %2.4f] loss %.4f\t lr %.5f"%(epoch+(float(step)*BATCH_SIZE/len(train_list)), np.sum(l)/BATCH_SIZE, lr)
+					print("[epoch %2.4f] loss %.4f\t lr %.5f"%(epoch+(float(step)*BATCH_SIZE/len(train_list)), np.sum(l)/BATCH_SIZE, lr))
 					#print "[epoch %2.4f] loss %.4f\t lr %.5f\t norm %.2f"%(epoch+(float(step)*BATCH_SIZE/len(train_list)), np.sum(l)/BATCH_SIZE, lr, norm)
 				saver.save(sess, "./checkpoints/VDSR_adam_epoch_%03d.ckpt" % epoch ,global_step=global_step)
 				if epoch%LR_STEP_SIZE==19:
 					sess.run(q.close(cancel_pending_enqueues=True))
-					print "request stop..."
+					print("request stop...")
 					coord.request_stop()
-					print "join threads..."
+					print("join threads...")
 					coord.join(threads, stop_grace_period_secs=10)
 					lrr = lrr/10
 		else:
@@ -261,7 +263,7 @@ if __name__ == '__main__':
 					input_data, gt_data, cbcr_data = get_image_batch(train_list, offset, BATCH_SIZE)
 					feed_dict = {train_input: input_data, train_gt: gt_data}
 					_,l,output,lr, g_step = sess.run([opt, loss, train_output, learning_rate, global_step], feed_dict=feed_dict)
-					print "[epoch %2.4f] loss %.4f\t lr %.5f"%(epoch+(float(step)*BATCH_SIZE/len(train_list)), np.sum(l)/BATCH_SIZE, lr)
+					print("[epoch %2.4f] loss %.4f\t lr %.5f"%(epoch+(float(step)*BATCH_SIZE/len(train_list)), np.sum(l)/BATCH_SIZE, lr))
 					del input_data, gt_data, cbcr_data
 
 				saver.save(sess, "./checkpoints/VDSR_const_clip_0.01_epoch_%03d.ckpt" % epoch ,global_step=global_step)
