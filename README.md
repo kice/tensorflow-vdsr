@@ -13,6 +13,9 @@ This is a Tensorflow implementation for ["Accurate Image Super-Resolution Using 
 - TEST.py : test all the saved checkpoints
 - PLOT.py : plot the test result from TEST.py
 
+## Changes
+- Support Python 3 and TensorFlow 1.0
+
 ## How To Use
 ### Training
 ```shell
